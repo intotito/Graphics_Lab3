@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+
+<html>
+
+<script src="https://code.jquery.com/jquery-3.1.0.min.js"></script>
+
+<head>
+	<meta charset="UTF-8">
+	<title>Canvas</title>
+
+	<style type="text/css">
+		canvas {
+			border: 1px solid grey;
+		}
+	</style>
+
+</head>
+
+<body>
+
+	<canvas id="canvas-for-ball" oncontextmenu="return false;"></canvas>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+	<script type="text/javascript">
+		var toRadian = (degree) => {
+			return (degree % 360) * Math.PI / 180;
+		}
+		class Ball {
+			LEFT = 37;
+			RIGHT = 39;
+			DOWN = 40;
+			UP = 38;
+			SPIN_INC = 79;
+			SPIN_DEC = 80;
+
+
+
+			constructor(x, y, radius) {
+				this.x = x;
+				this.y = y;
+				this.radius = radius;
+				this.lineWidth = 2;
+				this.angAcc = toRadian(2);
+				this.angle = 0;
+				this.xAcc = 0.0;
+				this.yAcc = 0.0;
+				this.xVelocity = 0;
+				this.yVelocity = 0;
+				this.init();
+			}
+			/**
+			 * Initializes the Ball's properties to initial values
+			 */
+
+			init() {
+				this.xAcc = 0.00;
+				this.yAcc = 0.5;
+				this.xVelocity = 2;
+			}
+
+			handleKeyEvent(code, velocity) {
+				if (code == this.RIGHT) {
+					this.xVelocity += velocity;
+				} else if (code == this.LEFT) {
+					this.xVelocity -= velocity;
+				} else if (code == this.UP) {
+					this.yVelocity -= velocity;
+				} else if (code == this.DOWN) {
+					this.yVelocity += velocity;
+				} else if (code == this.SPIN_INC) {
+					this.angAcc = this.angAcc + (Math.abs(this.angAcc) / this.angAcc) * toRadian(0.1);
+				} else if (code == this.SPIN_DEC) {
+					this.angAcc = this.angAcc - (Math.abs(this.angAcc) / this.angAcc) * toRadian(0.1);
+				}
+				console.log("Angle = " + this.angAcc);
+			}
+
+			handleMouseEvent(canBounds, event) {
+				ball.setPosition(event.clientX - canBounds.left, event.clientY - canBounds.top);
+			}
+
+
+			/**
+			 * This method is called every time the screen is redrawn.
+			 * It is assumed that this method is called every second and all calculations are
+			 * done with the approximation of td = 1 sec. (td = difference in time between each frame call)
+			 * @param ctx - A Canvas Context is passed to this method for drawing
+			*/
+			move(ctx) {
+				let xU = this.xVelocity; // Initial velocity along x-axis
+				let yU = this.yVelocity; // Initial velocity along y-axis
+				this.xVelocity = xU + this.xAcc; // Final velocity along x-axis vx = ux + at 
+				this.yVelocity = yU + Math.abs(this.yAcc); // Final velocity along y-axis vy = uy + g * t
+
+
+
+				this.x += xU + this.xAcc / 2; // Distance travelled per frame s = ux * t + ½a * t²
+				this.y += yU + this.yAcc / 2; // Distance travelled per frame s = uy * t + ½g * t²
+
+				this.angle += this.angAcc; // Increment angle of rotation per frame by angular acceleration
+
+
+				if ((this.x + this.radius + this.lineWidth) > ctx.canvas.width) { // Check if the ball has gone beyound the screen bounds on the right hand side
+					this.xAcc *= -1; // reverse the sign of the acceleration vector  along x-axis
+					this.xVelocity *= -0.9; // Reverse the sign of the velocity vector along x-axis and apply a damp of 0.9 of the initial velocity
+					this.x = ctx.canvas.width - this.radius - this.lineWidth - 1; // Align the ball to the very end of the screen along the x-axis
+					this.angAcc *= -1; // Reverse the angle of rotation of the ball
+
+				} else if ((this.x - this.radius - this.lineWidth) <= 0) { // Check if the ball has gone beyond the screen bounds on the left hand side
+					this.xAcc *= -1; // reverse the sign of the acceleration vector along x-axis
+					this.xVelocity *= -0.9; // Reverse the sig of the velocity vector along x-axis and apply a damp of 0.9 of the initial velocity
+					this.x = this.radius + this.lineWidth + 1; // Align the ball to the vey start of the screen along the x-axis
+					this.angAcc *= -1; // Reverse the angle of rotation of the ball
+				}
+				if ((this.y + this.radius + this.lineWidth / 2) >= ctx.canvas.height) { // Check if the ball has gone beyond the bottom of the screen
+					this.yAcc *= -1; // Reverse the sign of the acceleration vector (gravity) along y-axis
+					this.yVelocity *= -0.95; // Reverse the sign of the velocity vector along the y-axis and dampen by 0.95 of the initial velocity
+					this.y = ctx.canvas.height - this.radius - this.lineWidth / 2; // Align the ball at the very bottom of the canvas along the y-axis
+				} else if ((this.y - this.radius - this.lineWidth) < 0) { // Check if the ball has gone above the top of the canvas
+					this.y = this.radius + this.lineWidth + 1;
+					this.yVelocity *= -0.95; // Reverse the sign of the velocity vector along the y-axis and dampen by 0.95 of the initial velocity
+					this.yAcc *= -1; // Reverse the sign of the acceleration vector along y-axis
+				}
+
+				this.draw(ctx);
+			}
+
+			draw(ctx) {
+				ctx.save(); // Save the state of the transformation matrix
+				ctx.translate(this.x, this.y); // Translate the co-ordinate origin to the center of the ball
+				ctx.rotate(this.angle); // Apply a rotation transformatiom
+				ctx.translate(-this.x, -this.y); // Translate the cordinate orign back to (0,0)
+
+				ctx.lineWidth = this.lineWidth;
+
+				// Draw the red semi circle
+				ctx.beginPath();
+				ctx.fillStyle = 'red';
+				ctx.strokeStyle = 'black';
+				ctx.arc(this.x, this.y, this.radius, toRadian(180 - 45), toRadian(360 - 45));
+				ctx.fill();
+				ctx.stroke();
+
+				// Draw blue semi circle
+				ctx.beginPath();
+				ctx.fillStyle = 'blue';
+				ctx.strokeStyle = "black";
+				ctx.arc(this.x, this.y, this.radius, toRadian(360 - 45), toRadian(180 - 45));
+				ctx.fill();
+				ctx.stroke();
+
+				// Draw a diagonal line accross the circles
+				ctx.beginPath();
+				ctx.moveTo(this.x + this.radius * Math.cos(toRadian(360 - 45)), this.y + this.radius * Math.sin(toRadian(360 - 45)));
+				ctx.lineTo(this.x + this.radius * Math.cos(toRadian(180 - 45)), this.y + this.radius * Math.sin(toRadian(180 - 45)));
+				ctx.stroke();
+
+				// Draw the white inner circle
+				ctx.beginPath();
+				ctx.fillStyle = 'white';
+				ctx.strokeStyle = 'black';
+				ctx.arc(this.x, this.y, this.radius / 2, 0, 2 * Math.PI);
+				ctx.fill();
+				ctx.stroke();
+
+				// Restore the transformation matrix to the previous state before rotation
+				ctx.restore();
+			}
+
+			keyPressed(event) {
+
+			}
+
+			setPosition(x, y) {
+				this.x = x;
+				this.y = y;
+			}
+
+		}
+
+
+
+		// Gets a handle to the element with id canvasOne.
+		var canvas = document.getElementById("canvas-for-ball");
+		// Get a 2D context for the canvas.
+		var ctx = canvas.getContext("2d");
+		// Make the fill style red.
+		ctx.fillStyle = "rgb(255, 0, 0)";
+		canvas.height = 500;
+		canvas.width = 500;
+
+		// Add a Javascript event listener to the keypress event.
+		/*		window.addEventListener("keypress", function (event) {
+					// Just log the event to the console.
+					console.log(event);
+				});
+		*/
+
+		$(document.body).on('mousedown', function (event) {
+					switch (event.which) {
+						case 1:
+					//		alert('Left Mouse button pressed.');
+							break;
+						case 2:
+				//			alert('Middle Mouse button pressed.');
+							break;
+						case 3:
+							ball.handleMouseEvent(canvas.getBoundingClientRect(), event);
+					//		alert('Right Mouse button pressed.');
+							break;
+						default:
+						//	alert('You have a strange Mouse!');
+					}
+				});
+
+		//keypresses with jQuery
+		$(document.body).on('keydown', function (e) {
+			ball.handleKeyEvent(e.which, 1);
+			console.log(e.which);
+			switch (e.which) {
+				// key code for left arrow
+				case 37:
+					console.log('left arrow key pressed!');
+					break;
+
+				// key code for right arrow
+				case 39:
+					console.log('right arrow key pressed!');
+					break;
+			}
+		});
+		var balls = [new Ball(20, 20, 20), new Ball(350,0,20)];
+		var ball = balls[0];
+		
+
+		function repeatme() {
+			ctx.fillStyle = 'white';
+			ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+			balls.forEach(ball => {
+				ball.move(ctx);
+			});
+			
+			window.requestAnimationFrame(repeatme);
+		}
+
+		// Get the animation going.
+		repeatme();
+
+	</script>
+
+</body>
+
+</html>
